@@ -1,6 +1,8 @@
 services:
   system-status:
-    build: .
+    image: ghcr.io/davebco/system-status-page:latest
     ports:
       - "8085:8085"
-    restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
