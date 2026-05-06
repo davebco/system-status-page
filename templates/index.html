@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>System Status</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    header h1 {
+      font-size: 1.8rem;
+      font-weight: 600;
+      color: #f8fafc;
+    }
+
+    #clock {
+      font-size: 3rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: #38bdf8;
+      font-variant-numeric: tabular-nums;
+      margin: 0.25rem 0;
+    }
+
+    #date-tz {
+      font-size: 0.9rem;
+      color: #94a3b8;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+      width: 100%;
+      max-width: 900px;
+    }
+
+    .card {
+      background: #1e2330;
+      border: 1px solid #2d3748;
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+    }
+
+    .card-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      margin-bottom: 0.5rem;
+    }
+
+    .card-value {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+
+    .card-sub {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      margin-top: 0.2rem;
+    }
+
+    .bar-wrap {
+      background: #2d3748;
+      border-radius: 999px;
+      height: 8px;
+      margin-top: 0.75rem;
+      overflow: hidden;
+    }
+
+    .bar {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.4s ease;
+    }
+
+    .bar-cpu  { background: #38bdf8; }
+    .bar-mem  { background: #818cf8; }
+    .bar-disk { background: #34d399; }
+
+    .bar.warn  { background: #fb923c; }
+    .bar.danger { background: #f87171; }
+
+    #status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #34d399;
+      margin-right: 6px;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    footer {
+      margin-top: 2rem;
+      font-size: 0.75rem;
+      color: #475569;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><span id="status-dot"></span>System Status</h1>
+    <div id="clock">--:--:--</div>
+    <div id="date-tz">Loading...</div>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <div class="card-label">Host</div>
+      <div class="card-value" id="hostname">—</div>
+      <div class="card-sub" id="os">—</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Uptime</div>
+      <div class="card-value" id="uptime">—</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">CPU Usage</div>
+      <div class="card-value" id="cpu-pct">—</div>
+      <div class="card-sub" id="cpu-count">—</div>
+      <div class="bar-wrap"><div class="bar bar-cpu" id="cpu-bar" style="width:0%"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Memory</div>
+      <div class="card-value" id="mem-pct">—</div>
+      <div class="card-sub" id="mem-detail">—</div>
+      <div class="bar-wrap"><div class="bar bar-mem" id="mem-bar" style="width:0%"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Disk</div>
+      <div class="card-value" id="disk-pct">—</div>
+      <div class="card-sub" id="disk-detail">—</div>
+      <div class="bar-wrap"><div class="bar bar-disk" id="disk-bar" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <footer>Updates every 5 seconds</footer>
+
+  <script>
+    function setBar(barEl, pct) {
+      barEl.style.width = pct + '%';
+      barEl.classList.remove('warn', 'danger');
+      if (pct >= 90) barEl.classList.add('danger');
+      else if (pct >= 75) barEl.classList.add('warn');
+    }
+
+    function updateClock(time, tz) {
+      const parts = time.split(' ');
+      document.getElementById('clock').textContent = parts[1];
+      document.getElementById('date-tz').textContent = `${parts[0]}  ·  ${tz}`;
+    }
+
+    async function fetchStats() {
+      try {
+        const res = await fetch('/api/stats');
+        const d = await res.json();
+
+        updateClock(d.time, d.timezone);
+        document.getElementById('hostname').textContent = d.hostname;
+        document.getElementById('os').textContent = d.os;
+        document.getElementById('uptime').textContent = d.uptime;
+
+        document.getElementById('cpu-pct').textContent = d.cpu_percent + '%';
+        document.getElementById('cpu-count').textContent = `${d.cpu_count} logical cores`;
+        setBar(document.getElementById('cpu-bar'), d.cpu_percent);
+
+        document.getElementById('mem-pct').textContent = d.mem_percent + '%';
+        document.getElementById('mem-detail').textContent = `${d.mem_used_gb} GB / ${d.mem_total_gb} GB`;
+        setBar(document.getElementById('mem-bar'), d.mem_percent);
+
+        document.getElementById('disk-pct').textContent = d.disk_percent + '%';
+        document.getElementById('disk-detail').textContent = `${d.disk_used_gb} GB / ${d.disk_total_gb} GB`;
+        setBar(document.getElementById('disk-bar'), d.disk_percent);
+      } catch (e) {
+        console.error('Failed to fetch stats:', e);
+      }
+    }
+
+    fetchStats();
+    setInterval(fetchStats, 5000);
+  </script>
+</body>
+</html>
