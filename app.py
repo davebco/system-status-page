@@ -1,4 +1,5 @@
 from flask import Flask, render_template, jsonify
+import os
 import psutil
 import platform
 import datetime
@@ -18,7 +19,7 @@ def get_system_stats():
     return {
         "time": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "os": f"{platform.system()} {platform.release()}",
-        "hostname": platform.node(),
+        "hostname": os.environ.get("HOST_HOSTNAME", platform.node()),
         "uptime": f"{hours}h {minutes}m {seconds}s",
         "cpu_percent": psutil.cpu_percent(interval=0.5),
         "cpu_count": psutil.cpu_count(),

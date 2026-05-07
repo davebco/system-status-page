@@ -1,6 +1,8 @@
 services:
   system-status:
     image: ghcr.io/davebco/system-status-page:latest
+    environment:
+      - HOST_HOSTNAME=${HOSTNAME}
     ports:
       - "8085:8085"
     deploy:
