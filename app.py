@@ -3,8 +3,29 @@ import os
 import psutil
 import platform
 import datetime
+import docker
 
 app = Flask(__name__)
+
+
+def _get_container_stats():
+    try:
+        client = docker.from_env()
+        containers = client.containers.list(all=True)
+        counts = {"running": 0, "exited": 0, "other": 0}
+        items = []
+        for c in containers:
+            if c.status == "running":
+                counts["running"] += 1
+            elif c.status in ("exited", "stopped"):
+                counts["exited"] += 1
+            else:
+                counts["other"] += 1
+            items.append({"name": c.name, "status": c.status})
+        items.sort(key=lambda x: (x["status"] != "running", x["name"]))
+        return {"total": len(containers), "counts": counts, "containers": items}
+    except Exception:
+        return None
 
 
 def _get_host_hostname():
@@ -37,6 +58,7 @@ def get_system_stats():
         "disk_total_gb": round(disk.total / 1024**3, 1),
         "disk_used_gb": round(disk.used / 1024**3, 1),
         "disk_percent": disk.percent,
+        "docker": _get_container_stats(),
     }
 
 
