@@ -16,8 +16,7 @@ def get_system_stats():
     disk = psutil.disk_usage("/")
 
     return {
-        "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "timezone": datetime.datetime.now().astimezone().tzname(),
+        "time": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "os": f"{platform.system()} {platform.release()}",
         "hostname": platform.node(),
         "uptime": f"{hours}h {minutes}m {seconds}s",

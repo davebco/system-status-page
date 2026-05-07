@@ -172,10 +172,10 @@
       else if (pct >= 75) barEl.classList.add('warn');
     }
 
-    function updateClock(time, tz) {
-      const parts = time.split(' ');
-      document.getElementById('clock').textContent = parts[1];
-      document.getElementById('date-tz').textContent = `${parts[0]}  ·  ${tz}`;
+    function updateClock(isoTime) {
+      const d = new Date(isoTime);
+      document.getElementById('clock').textContent = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+      document.getElementById('date-tz').textContent = `${d.toLocaleDateString()}  ·  ${Intl.DateTimeFormat().resolvedOptions().timeZone}`;
     }
 
     async function fetchStats() {
@@ -183,7 +183,7 @@
         const res = await fetch('/api/stats');
         const d = await res.json();
 
-        updateClock(d.time, d.timezone);
+        updateClock(d.time);
         document.getElementById('hostname').textContent = d.hostname;
         document.getElementById('os').textContent = d.os;
         document.getElementById('uptime').textContent = d.uptime;
