@@ -7,6 +7,14 @@ import datetime
 app = Flask(__name__)
 
 
+def _get_host_hostname():
+    try:
+        with open("/etc/host_hostname") as f:
+            return f.read().strip()
+    except OSError:
+        return os.environ.get("HOST_HOSTNAME", platform.node())
+
+
 def get_system_stats():
     boot_time = datetime.datetime.fromtimestamp(psutil.boot_time())
     uptime = datetime.datetime.now() - boot_time
@@ -19,7 +27,7 @@ def get_system_stats():
     return {
         "time": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "os": f"{platform.system()} {platform.release()}",
-        "hostname": os.environ.get("HOST_HOSTNAME", platform.node()),
+        "hostname": _get_host_hostname(),
         "uptime": f"{hours}h {minutes}m {seconds}s",
         "cpu_percent": psutil.cpu_percent(interval=0.5),
         "cpu_count": psutil.cpu_count(),
