@@ -45,10 +45,19 @@
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      grid-template-columns: repeat(6, 1fr);
       gap: 1rem;
       width: 100%;
-      max-width: 900px;
+      max-width: 1100px;
+    }
+
+    .card-top  { grid-column: span 2; }
+    .card-mid  { grid-column: span 3; }
+    .card-wide { grid-column: span 6; }
+
+    @media (max-width: 720px) {
+      .grid { grid-template-columns: 1fr; }
+      .card-top, .card-mid, .card-wide { grid-column: span 1; }
     }
 
     .card {
@@ -98,11 +107,9 @@
 
     .container-list {
       margin-top: 0.75rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.35rem;
-      max-height: 140px;
-      overflow-y: auto;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.35rem 1.5rem;
     }
 
     .container-row {
@@ -157,39 +164,39 @@
   </header>
 
   <div class="grid">
-    <div class="card">
+    <div class="card card-top">
       <div class="card-label">Host</div>
       <div class="card-value" id="hostname">—</div>
       <div class="card-sub" id="os">—</div>
     </div>
 
-    <div class="card">
+    <div class="card card-top">
       <div class="card-label">Uptime</div>
       <div class="card-value" id="uptime">—</div>
     </div>
 
-    <div class="card">
+    <div class="card card-top">
       <div class="card-label">CPU Usage</div>
       <div class="card-value" id="cpu-pct">—</div>
       <div class="card-sub" id="cpu-count">—</div>
       <div class="bar-wrap"><div class="bar bar-cpu" id="cpu-bar" style="width:0%"></div></div>
     </div>
 
-    <div class="card">
+    <div class="card card-mid">
       <div class="card-label">Memory</div>
       <div class="card-value" id="mem-pct">—</div>
       <div class="card-sub" id="mem-detail">—</div>
       <div class="bar-wrap"><div class="bar bar-mem" id="mem-bar" style="width:0%"></div></div>
     </div>
 
-    <div class="card">
+    <div class="card card-mid">
       <div class="card-label">Disk</div>
       <div class="card-value" id="disk-pct">—</div>
       <div class="card-sub" id="disk-detail">—</div>
       <div class="bar-wrap"><div class="bar bar-disk" id="disk-bar" style="width:0%"></div></div>
     </div>
 
-    <div class="card">
+    <div class="card card-wide">
       <div class="card-label">Containers</div>
       <div class="card-value" id="containers-total">—</div>
       <div class="card-sub" id="containers-summary">—</div>
