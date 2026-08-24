@@ -333,10 +333,15 @@
             `${dk.counts.running} running · ${dk.counts.exited} stopped` +
             (dk.counts.other > 0 ? ` · ${dk.counts.other} other` : '');
           const list = document.getElementById('container-list');
-          list.innerHTML = dk.containers.map(c => {
+          list.replaceChildren(...dk.containers.map(c => {
             const dotClass = c.status === 'running' ? 'dot-running' : c.status === 'exited' ? 'dot-exited' : 'dot-other';
-            return `<div class="container-row"><span class="container-dot ${dotClass}"></span>${c.name}</div>`;
-          }).join('');
+            const row = document.createElement('div');
+            row.className = 'container-row';
+            const dot = document.createElement('span');
+            dot.className = 'container-dot ' + dotClass;
+            row.append(dot, c.name);  // container names come from Docker — never interpolate into HTML
+            return row;
+          }));
         } else {
           document.getElementById('containers-total').textContent = 'N/A';
           document.getElementById('containers-summary').textContent = 'Docker socket unavailable';
