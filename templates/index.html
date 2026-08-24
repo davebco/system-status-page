@@ -138,6 +138,30 @@
     .dot-exited  { background: #f87171; }
     .dot-other   { background: #fb923c; }
 
+    .backup-dot {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      margin-right: 0.5rem;
+      vertical-align: middle;
+      background: #64748b;
+    }
+
+    .bk-ok      { background: #34d399; }
+    .bk-warn    { background: #fb923c; }
+    .bk-fail    { background: #f87171; }
+    .bk-unknown { background: #64748b; }
+
+    .backup-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 1.5rem;
+      margin-top: 0.75rem;
+      font-size: 0.78rem;
+      color: #cbd5e1;
+    }
+
     .bar.warn  { background: #fb923c; }
     .bar.danger { background: #f87171; }
 
@@ -207,6 +231,13 @@
     </div>
 
     <div class="card card-wide">
+      <div class="card-label">Backups &middot; qb-backup &rarr; NAS</div>
+      <div class="card-value"><span class="backup-dot bk-unknown" id="backup-dot"></span><span id="backup-state">&mdash;</span></div>
+      <div class="card-sub" id="backup-message">&mdash;</div>
+      <div class="backup-meta" id="backup-meta"></div>
+    </div>
+
+    <div class="card card-wide">
       <div class="card-label">Containers</div>
       <div class="card-value" id="containers-total">—</div>
       <div class="card-sub" id="containers-summary">—</div>
@@ -229,6 +260,26 @@
         .map((v, i) => `${((offset + i) * stepX).toFixed(2)},${(30 - (Math.max(0, Math.min(100, v)) / 100) * 30).toFixed(2)}`)
         .join(' ');
       line.setAttribute('points', points);
+    }
+
+    const BACKUP_STATE_TEXT = { ok: 'Healthy', warn: 'Attention', fail: 'Failing', unknown: 'Unknown' };
+
+    function renderBackup(b) {
+      const dot = document.getElementById('backup-dot');
+      const state = (b && b.state) || 'unknown';
+      dot.className = 'backup-dot bk-' + state;
+      document.getElementById('backup-state').textContent = BACKUP_STATE_TEXT[state] || state;
+      document.getElementById('backup-message').textContent = (b && b.message) || 'No data';
+
+      const bits = [];
+      if (b && b.age_hours !== null && b.age_hours !== undefined) bits.push(`${b.age_hours}h ago`);
+      if (b && b.latest_size_gb) bits.push(`${b.latest_size_gb} GB last run`);
+      if (b && b.daily_count) bits.push(`${b.daily_count} daily kept`);
+      if (b && b.weekly_count) bits.push(`${b.weekly_count} weekly kept`);
+      if (b && b.latest_weekly) bits.push(`newest weekly ${b.latest_weekly}`);
+      if (b && b.share) bits.push(`share ${b.share.used_gb} GB / ${b.share.total_gb} GB (${b.share.percent}%)`);
+      document.getElementById('backup-meta').innerHTML =
+        bits.map(t => `<span>${t}</span>`).join('');
     }
 
     function setBar(barEl, pct) {
@@ -268,6 +319,8 @@
         document.getElementById('disk-pct').textContent = d.disk_percent + '%';
         document.getElementById('disk-detail').textContent = `${d.disk_used_gb} GB / ${d.disk_total_gb} GB`;
         setBar(document.getElementById('disk-bar'), d.disk_percent);
+
+        renderBackup(d.backup);
 
         if (d.docker) {
           const dk = d.docker;
