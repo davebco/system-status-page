@@ -5,7 +5,7 @@ services:
       - /etc/hostname:/etc/host_hostname:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       # qb-backup's NFS target. /mnt/docker-backups is an autofs automount on the
-      # host, so this needs rslave propagation — with the default rprivate the
+      # host, so this needs rslave propagation - with the default rprivate the
       # container would bind the empty stub if it starts before the first access.
       - type: bind
         source: /mnt/docker-backups
