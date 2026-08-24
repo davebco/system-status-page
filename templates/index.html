@@ -278,8 +278,12 @@
       if (b && b.weekly_count) bits.push(`${b.weekly_count} weekly kept`);
       if (b && b.latest_weekly) bits.push(`newest weekly ${b.latest_weekly}`);
       if (b && b.share) bits.push(`share ${b.share.used_gb} GB / ${b.share.total_gb} GB (${b.share.percent}%)`);
-      document.getElementById('backup-meta').innerHTML =
-        bits.map(t => `<span>${t}</span>`).join('');
+      const meta = document.getElementById('backup-meta');
+      meta.replaceChildren(...bits.map(t => {
+        const span = document.createElement('span');
+        span.textContent = t;  // names come off disk — never interpolate into HTML
+        return span;
+      }));
     }
 
     function setBar(barEl, pct) {
