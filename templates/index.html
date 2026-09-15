@@ -162,6 +162,9 @@
       color: #cbd5e1;
     }
 
+    /* No background here: the bk-* colour rules above are the same specificity,
+       so a background set here would win over bk-ok and pin the dot grey.
+       The markup ships with bk-unknown, which supplies the grey default. */
     .cert-dot {
       display: inline-block;
       width: 9px;
@@ -169,7 +172,6 @@
       border-radius: 50%;
       margin-right: 0.5rem;
       vertical-align: middle;
-      background: #64748b;
     }
 
     .cert-list {
