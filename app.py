@@ -4,7 +4,11 @@ import psutil
 import platform
 import datetime
 import time
+import socket
+import ssl
+import concurrent.futures
 import docker
+from cryptography import x509
 
 app = Flask(__name__)
 
@@ -136,6 +140,115 @@ def _get_backup_status():
     return _backup_cache["data"]
 
 
+# "Label=host:port", comma separated. Home Assistant and Grafana are plain HTTP
+# and have no cert to read. step-ca is deliberately absent: it re-issues its own
+# leaf every 24h, so it would sit permanently in "expires today".
+# The UDM must be probed by its id.ui.direct name - the bare IP answers with the
+# self-signed unifi.local cert instead of the Let's Encrypt one.
+CERT_TARGETS = os.environ.get("CERT_TARGETS", ",".join([
+    "NAS (DSM)=ls-nas.limestone.pvt:5001",
+    "Portainer=portainer.limestone.pvt:9443",
+    "Wazuh dashboard=192.168.10.250:8443",
+    "UDM-Pro=d8b3701b063d0765131707bf639f064171940.id.ui.direct:443",
+]))
+CERT_CACHE_TTL = 3600  # certs move monthly at most; the page polls every 5s
+CERT_WARN_DAYS = 30
+CERT_TIMEOUT = 4
+_cert_cache = {"at": 0.0, "data": None}
+_CERT_SEVERITY = {"ok": 0, "unknown": 1, "warn": 2, "fail": 3}
+
+
+def _parse_cert_targets(raw):
+    targets = []
+    for item in raw.split(","):
+        label, _, addr = item.strip().rpartition("=")
+        host, _, port = addr.rpartition(":")
+        if not host:
+            continue
+        try:
+            targets.append((label or addr, host, int(port)))
+        except ValueError:
+            continue
+    return targets
+
+
+def _common_name(name):
+    cn = name.get_attributes_for_oid(x509.oid.NameOID.COMMON_NAME)
+    return cn[0].value if cn else name.rfc4514_string()
+
+
+def _probe_cert(label, host, port):
+    # CERT_NONE on purpose. An expiring cert still has to be reported when it is
+    # untrusted or already expired, which is exactly when validation would fail.
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    row = {"label": label, "target": f"{host}:{port}"}
+    try:
+        with socket.create_connection((host, port), timeout=CERT_TIMEOUT) as sock:
+            with ctx.wrap_socket(sock, server_hostname=host) as tls:
+                der = tls.getpeercert(binary_form=True)
+        cert = x509.load_der_x509_certificate(der)
+    except (OSError, ValueError) as e:
+        return {**row, "state": "unknown", "message": type(e).__name__}
+
+    expires = cert.not_valid_after_utc
+    days = (expires - datetime.datetime.now(datetime.timezone.utc)).days
+    if days < 0:
+        state = "fail"
+    elif days <= CERT_WARN_DAYS:
+        state = "warn"
+    else:
+        state = "ok"
+    return {**row, "state": state, "days_left": days,
+            "expires": expires.date().isoformat(),
+            "subject": _common_name(cert.subject),
+            "issuer": _common_name(cert.issuer)}
+
+
+def _read_cert_status():
+    targets = _parse_cert_targets(CERT_TARGETS)
+    if not targets:
+        return {"state": "unknown", "message": "No targets configured", "certs": []}
+
+    # Probed in parallel so one dead host cannot stall the whole refresh.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        certs = list(pool.map(lambda t: _probe_cert(*t), targets))
+    certs.sort(key=lambda c: (c.get("days_left") is None, c.get("days_left", 0)))
+
+    state = max(certs, key=lambda c: _CERT_SEVERITY[c["state"]])["state"]
+    expired = [c for c in certs if c["state"] == "fail"]
+    expiring = [c for c in certs if c["state"] == "warn"]
+    unreachable = [c for c in certs if c["state"] == "unknown"]
+    soonest = next((c for c in certs if "days_left" in c), None)
+
+    if expired:
+        message = f"{expired[0]['label']} has EXPIRED"
+    elif expiring:
+        message = f"{expiring[0]['label']} expires in {expiring[0]['days_left']} days"
+    elif unreachable:
+        message = f"{unreachable[0]['label']} unreachable ({unreachable[0]['message']})"
+    elif soonest:
+        message = (f"All {len(certs)} valid — next is {soonest['label']}, "
+                   f"{soonest['days_left']} days")
+    else:
+        message = "No certificates read"
+
+    return {"state": state, "message": message, "certs": certs}
+
+
+def _get_cert_status():
+    now = time.monotonic()
+    if _cert_cache["data"] is None or now - _cert_cache["at"] > CERT_CACHE_TTL:
+        try:
+            _cert_cache["data"] = _read_cert_status()
+        except Exception:
+            _cert_cache["data"] = {"state": "unknown",
+                                   "message": "cert check failed", "certs": []}
+        _cert_cache["at"] = now
+    return _cert_cache["data"]
+
+
 def get_system_stats():
     boot_time = datetime.datetime.fromtimestamp(psutil.boot_time())
     uptime = datetime.datetime.now() - boot_time
@@ -160,6 +273,7 @@ def get_system_stats():
         "disk_percent": disk.percent,
         "docker": _get_container_stats(),
         "backup": _get_backup_status(),
+        "certs": _get_cert_status(),
     }
 
 

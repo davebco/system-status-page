@@ -162,6 +162,37 @@
       color: #cbd5e1;
     }
 
+    .cert-dot {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      margin-right: 0.5rem;
+      vertical-align: middle;
+      background: #64748b;
+    }
+
+    .cert-list {
+      margin-top: 0.75rem;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.35rem 1.5rem;
+    }
+
+    .cert-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.78rem;
+      color: #cbd5e1;
+    }
+
+    .cert-days {
+      margin-left: auto;
+      color: #94a3b8;
+      white-space: nowrap;
+    }
+
     .bar.warn  { background: #fb923c; }
     .bar.danger { background: #f87171; }
 
@@ -238,6 +269,13 @@
     </div>
 
     <div class="card card-wide">
+      <div class="card-label">Certificates &middot; expiry</div>
+      <div class="card-value"><span class="cert-dot bk-unknown" id="cert-dot"></span><span id="cert-state">&mdash;</span></div>
+      <div class="card-sub" id="cert-message">&mdash;</div>
+      <div class="cert-list" id="cert-list"></div>
+    </div>
+
+    <div class="card card-wide">
       <div class="card-label">Containers</div>
       <div class="card-value" id="containers-total">—</div>
       <div class="card-sub" id="containers-summary">—</div>
@@ -286,6 +324,32 @@
       }));
     }
 
+    const CERT_STATE_TEXT = { ok: 'All valid', warn: 'Renew soon', fail: 'Expired', unknown: 'Unknown' };
+
+    function renderCerts(c) {
+      const state = (c && c.state) || 'unknown';
+      document.getElementById('cert-dot').className = 'cert-dot bk-' + state;
+      document.getElementById('cert-state').textContent = CERT_STATE_TEXT[state] || state;
+      document.getElementById('cert-message').textContent = (c && c.message) || 'No data';
+
+      const list = document.getElementById('cert-list');
+      list.replaceChildren(...((c && c.certs) || []).map(item => {
+        const row = document.createElement('div');
+        row.className = 'cert-row';
+        const dot = document.createElement('span');
+        dot.className = 'container-dot bk-' + item.state;
+        const days = document.createElement('span');
+        days.className = 'cert-days';
+        days.textContent = item.days_left === undefined
+          ? (item.message || 'unreachable')
+          : `${item.days_left}d · ${item.expires}`;
+        // labels and issuers come off the wire — never interpolate into HTML
+        row.title = `${item.target}${item.issuer ? ' — issued by ' + item.issuer : ''}`;
+        row.append(dot, item.label, days);
+        return row;
+      }));
+    }
+
     function setBar(barEl, pct) {
       barEl.style.width = pct + '%';
       barEl.classList.remove('warn', 'danger');
@@ -325,6 +389,7 @@
         setBar(document.getElementById('disk-bar'), d.disk_percent);
 
         renderBackup(d.backup);
+        renderCerts(d.certs);
 
         if (d.docker) {
           const dk = d.docker;
