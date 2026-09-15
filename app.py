@@ -148,6 +148,8 @@ def _get_backup_status():
 CERT_TARGETS = os.environ.get("CERT_TARGETS", ",".join([
     "NAS (DSM)=ls-nas.limestone.pvt:5001",
     "Portainer=portainer.limestone.pvt:9443",
+    "Cockpit=192.168.10.250:9090",
+    "Pi-hole=192.168.10.250:7301",  # 7300 is the plain-HTTP port
     "Wazuh dashboard=192.168.10.250:8443",
     "UDM-Pro=d8b3701b063d0765131707bf639f064171940.id.ui.direct:443",
 ]))
